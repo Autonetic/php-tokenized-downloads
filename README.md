@@ -4,4 +4,4 @@ Generate a tokenized download link from an uploaded file in this standalone PHP 
 
 Modify as needed, precaution has been taken to make this application secure, however when implementing it into your existiing systems, please consider security implications.
 
-** Security vulnerabilities can compromise system security if not properly reviewed **
+**Security vulnerabilities can compromise system security if not properly reviewed**
