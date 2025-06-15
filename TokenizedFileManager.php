@@ -49,17 +49,22 @@ class TokenizedFileManager {
      * Uploads a file, stores its metadata in the database, and returns a token.
      *
      * @param array $file Uploaded file info from $_FILES (e.g., $_FILES['userfile'])
+     * @var bool $expiry If the file has an expiry or not.
+     * @var string $expiry_date The date the file download link expires.
      * @return string The token that can be used to download the file.
      *
      * @throws Exception If the upload fails or database insertion fails.
      */
-    public function uploadFile(array $file)
+    public function uploadFile(array $file, string $uploaded_by, bool $expiry, $expiry_date)
     {
         // Check for any file upload errors.
         if ($file['error'] !== UPLOAD_ERR_OK) {
             throw new Exception("Upload failed with error code " . $file['error']);
         }
         
+        if ($expiry == "") {
+            die('EXPIRY ISSUE');
+        }
         // Get original file name and determine its extension.
         $originalName = basename($file['name']);
         $extension = pathinfo($originalName, PATHINFO_EXTENSION);
@@ -78,14 +83,17 @@ class TokenizedFileManager {
         
         // Insert file meta-data into the database.
         $stmt = $this->pdo->prepare("
-            INSERT INTO files (original_name, file_name, token, created_at)
-            VALUES (:original_name, :file_name, :token, NOW())
+            INSERT INTO files (original_name, file_name, token, uploaded_by, expiry, expiry_date, created_at)
+            VALUES (:original_name, :file_name, :token, :uploaded_by, :expiry, :expiry_date, NOW())
         ");
         
         $stmt->execute([
             ':original_name' => $originalName,
             ':file_name'     => $uniqueName,
-            ':token'         => $token
+            ':token'         => $token,
+            ':uploaded_by'   => $uploaded_by,
+            ':expiry'        => $expiry,
+            ':expiry_date'   => $expiry_date
         ]);
         
         return $token;
@@ -126,6 +134,13 @@ class TokenizedFileManager {
         }
         
         // Optionally, add logic here to expire the token after download or update a download counter.
+        if ($fileData['expiry'] == true) {
+            if(time() > strtotime($fileData['expiry_date'])) {
+                //Maybe consider removing the token and file upload if token is expired.
+                throw new Exception("Token expired. <br>" . "File's epiration date: " . $fileData['expiry_date'] );
+            }
+        }
+        
         $fileData['file_path'] = $filePath;
         return $fileData;
     }
@@ -160,9 +175,8 @@ class TokenizedFileManager {
             throw new Exception("File not found.");
         }
 
-        // Optionally, for one-time downloads, you might remove the token here:
-        // unset($this->tokenStorage[$token]);
-
+        // Optionally, for one-time downloads, you might remove the token here...
+        
         // Get the MIME type and set headers.
         $mimeType = mime_content_type($fileData['file_path']);
         header('Content-Description: File Transfer');
